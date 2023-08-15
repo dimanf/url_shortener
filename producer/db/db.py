@@ -1,4 +1,8 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    AsyncSession,
+    async_sessionmaker,
+)
 
 
 class SingletonMeta(type):
@@ -15,7 +19,8 @@ class Database(metaclass=SingletonMeta):
     def __init__(self, dsn: str = None):
         self.dsn = dsn
 
-    def connect(self) -> AsyncEngine:
+    def connect(self) -> async_sessionmaker[AsyncSession]:
         # TODO: Handle connect errors
         engine = create_async_engine(self.dsn, echo=True)
-        return engine
+        async_session = async_sessionmaker(engine, expire_on_commit=False)
+        return async_session
