@@ -1,0 +1,83 @@
+version: '3.4'
+
+x-postgres-env: &postgres_env
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_HOST: db
+
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: "rabbitmq:3.6-management-alpine"
+    hostname: "rabbitmq-host"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "pass"
+    networks:
+      - rabbitnetwork
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: url_shortener
+    networks:
+      - rabbitnetwork
+
+  producer:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    container_name: producer
+    command: bash -c "alembic upgrade head && python3 app.py"
+    ports:
+      - "7000:7000"
+    environment:
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: pass
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_QUEUE: dataqueue
+      RABBITMQ_ROUTING_KEY: dataqueue
+      RABBITMQ_EXCHANGE: exchange_test
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/url_shortener
+      SERVER_PORT: 7000
+      SERVER_HOST: producer
+      POSTGRES_DB: url_shortener
+      <<: *postgres_env
+    networks:
+      - rabbitnetwork
+    depends_on:
+      - db
+      - rabbitmq
+      - receiver
+    restart: unless-stopped
+
+  receiver:
+    build:
+      context: ./receiver
+      dockerfile: Dockerfile
+    container_name: receiver
+    command: bash -c "alembic upgrade head && python3 app.py"
+    ports:
+      - "9090:9090"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/receiver
+      SERVER_PORT: 9090
+      SERVER_HOST: receiver
+      PRODUCER_DB_NAME: url_shortener
+      RECEIVER_DB_NAME: receiver
+      <<: *postgres_env
+    networks:
+      - rabbitnetwork
+    restart: unless-stopped
+
+networks:
+  rabbitnetwork:
+    driver: bridge
