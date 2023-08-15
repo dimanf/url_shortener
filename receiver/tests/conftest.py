@@ -3,7 +3,6 @@ from sqlalchemy import orm
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from dto.visited_urls import VisitedUrlCreateDto
-from repository.shorter_urls import ShorterUrlsRepository
 from repository.visited_urls import VisitedUrlsRepository
 
 Base = orm.declarative_base()
@@ -41,7 +40,7 @@ async def session(engine, create):
 
 
 @pytest.fixture()
-def web_client(loop, aiohttp_client, pr_engine, session):
+async def web_client(loop, aiohttp_client, pr_engine, session):
     visited_urls_repo = VisitedUrlsRepository(session)
 
     vu = VisitedUrlCreateDto(
